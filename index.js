@@ -34,13 +34,25 @@ Things to figure out:
 
 */
 
+/*
+There are two parts to this problem:
+    1. Fitting all of the information into 9 characters
+    2. Obfuscating the encoding method from potential cheaters
+
+*/
+
+// Figure out how to implement a linear congruential generator to map numbers
+// https://stackoverflow.com/questions/44981398/how-to-map-number-in-a-range-to-another-in-the-same-range-with-no-collisions
+
 const promotionStart = new Date("2000-01-01");
 
 // TODO: Modify this function
 function generateShortCode(storeId, transactionId) {
     // Logic goes here
 
-    const date = Math.floor(Math.abs(new Date() - promotionStart) / (1000 * 60 * 60 * 24));
+    const today = new Date();
+    const date = Math.ceil(Math.abs(today - promotionStart) / (1000 * 60 * 60 * 24));
+    console.log(date);
 
     const seedValue = Math.round(Math.random() * (63 - 1) + 1);
 
@@ -83,6 +95,25 @@ function decodeShortCode(shortCode) {
         shopDate: new Date(dateOfTransaction), // the date the customer shopped,
         transactionId: transactionID, // transaction id goes here
     };
+}
+
+// https://gist.github.com/Protonk/5389384
+function lcg(seed) {
+    var m = 25;
+    var a = 11;
+    var c = 17;
+  
+    var z = seed || 3;
+
+    z = (a * z + c) % m;
+    
+    return z;
+}
+
+function testlcg() {
+    for(let i = 0; i < 1000; i++) {
+        console.log(lcg(i));
+    }
 }
 
 // https://stackoverflow.com/questions/521295/seeding-the-random-number-generator-in-javascript
