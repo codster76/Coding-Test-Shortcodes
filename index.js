@@ -70,24 +70,48 @@ const characterLookupTable = [
 ];
 
 // Number systems used for the different values
-const shopBase = 16;
+const storeBase = 16;
 const transactionBase = 22;
 const dateBase = characterLookupTable.length;
 const seedBase = characterLookupTable.length;
 
-// TODO: Modify this function
+// Digits for each value
+// Works in such a way where codes can be any length, based on these values.
+const storeDigits = 2;
+const transactionDigits = 3;
+const dateDigits = 3;
+const seedDigits = 1;
+
+/*
+Params:
+    - storeId: number between 0 and shopBase ^ storeDigits
+    - transactionId: number between 0 and transactionBase ^ transactionDigits
+
+Output:
+    - shortCode: string
+*/
 function generateShortCode(storeId, transactionId) {
+    if(storeId >= Math.pow(storeBase, storeDigits)) {
+        console.error(`Specified storeId ${storeId} is too large to fit into ${storeDigits} base ${storeBase} digits`);
+        return "";
+    }
+
+    if(transactionId >= Math.pow(transactionBase, transactionDigits)) {
+        console.error(`Specified transactionId ${transactionId} is too large to fit into ${transactionDigits} base ${transactionBase} digits`);
+        return "";
+    }
+
     const today = new Date();
     const todayInDays = Math.ceil(today / (1000 * 60 * 60 * 24));
 
-    const seedValue = Math.round(Math.random() * (63 - 1) + 1);
+    const seedValue = Math.round(Math.random() * ((seedBase - 1) - 1) + 1);
     
     const randomisedArray = arrayRandomisation(characterLookupTable, seedValue);
 
-    const base64StoreID = convertToAnyBase(shopBase, storeId, randomisedArray, 2);
-    const base64TransactionID = convertToAnyBase(transactionBase, transactionId, randomisedArray, 3);
-    const base64Date = convertToAnyBase(dateBase, todayInDays, randomisedArray, 3);
-    const base64Seed = convertToAnyBase(seedBase, seedValue, characterLookupTable, 1);
+    const base64StoreID = convertToAnyBase(storeBase, storeId, randomisedArray, storeDigits);
+    const base64TransactionID = convertToAnyBase(transactionBase, transactionId, randomisedArray, transactionDigits);
+    const base64Date = convertToAnyBase(dateBase, todayInDays, randomisedArray, dateDigits);
+    const base64Seed = convertToAnyBase(seedBase, seedValue, characterLookupTable, seedDigits);
 
     // Shortcode is shuffled. This helps to avoid predictable repeat characters.
     const unshuffledShortCodeAsArray = `${base64StoreID}${base64TransactionID}${base64Date}`.split('');
@@ -98,9 +122,14 @@ function generateShortCode(storeId, transactionId) {
     return shortCode;
 }
 
-// TODO: Modify this function
+/*
+Params:
+    - shortCode: string
+
+Output:
+    - Object containing storeId, shopDate, transactionId
+*/
 function decodeShortCode(shortCode) {
-    // Logic goes here
     const seedValue = convertAnyToBase10(seedBase, shortCode.charAt(shortCode.length - 1), characterLookupTable);
 
     const randomisedArray = arrayRandomisation(characterLookupTable, seedValue);
@@ -108,9 +137,9 @@ function decodeShortCode(shortCode) {
     const shortCodeWithoutSeed = shortCode.substring(0,8).split('');
     const unshuffledShortCode = arrayReverseRandomisation(shortCodeWithoutSeed, seedValue).join('');
 
-    let storeID = convertAnyToBase10(shopBase, unshuffledShortCode.substring(0,2), randomisedArray);
-    let transactionID = convertAnyToBase10(transactionBase, unshuffledShortCode.substring(2,5), randomisedArray);
-    let dateOfTransaction = convertAnyToBase10(dateBase, unshuffledShortCode.substring(5,8), randomisedArray);
+    const storeID = convertAnyToBase10(storeBase, unshuffledShortCode.substring(0,storeDigits), randomisedArray);
+    const transactionID = convertAnyToBase10(transactionBase, unshuffledShortCode.substring(storeDigits,storeDigits+transactionDigits), randomisedArray);
+    const dateOfTransaction = convertAnyToBase10(dateBase, unshuffledShortCode.substring(storeDigits+transactionDigits,storeDigits+transactionDigits+dateDigits), randomisedArray);
 
     // Date rounding seems to cause mismatches in dates, so 1 day needs to be subtracted
     dateOfTransaction = (dateOfTransaction - 1) * 24 * 60 * 60 * 1000;
@@ -122,9 +151,18 @@ function decodeShortCode(shortCode) {
     };
 }
 
+/*
+Params:
+    - seed: number between 0 and 2^numDigits
+    - numDigits: maximum number of digits used for randomisation. Greater values allow for more granularity in randomisation.
+    - maxValue: Final value will be mapped to a value between 0 and maxValue
+
+Output:
+    - Random number between 0 and maxValue
+*/
 // Not crypographically secure at all, but random enough to be usable.
 function deterministicReversibleRandom(seed, numDigits, maxValue) {
-    let valueInBinaryAsArray = seed.toString(2).split('').reverse();
+    const valueInBinaryAsArray = seed.toString(2).split('').reverse();
     if(valueInBinaryAsArray.length > numDigits) {
         console.error("Seed value is larger than maximum number of binary digits");
         return 0;
@@ -134,10 +172,18 @@ function deterministicReversibleRandom(seed, numDigits, maxValue) {
         valueInBinaryAsArray.push('0');
     }
 
-    let percentage = (parseInt(valueInBinaryAsArray.join(''), 2))/(Math.pow(2, numDigits) - 1);
+    const percentage = (parseInt(valueInBinaryAsArray.join(''), 2))/(Math.pow(2, numDigits) - 1);
     return Math.round(percentage * maxValue);
 }
 
+/*
+Params:
+    - array: array to shuffle
+    - seed: number used for randomisation
+
+Output:
+    - Shuffled copy of the input array
+*/
 // Fisher–Yates shuffle
 function arrayRandomisation(array, seed) {
     const arrayCopy = JSON.parse(JSON.stringify(array)); // without a deep copy, it modifies the original array repeatedly
@@ -148,8 +194,8 @@ function arrayRandomisation(array, seed) {
     for(let i = array.length-1;i>=0;i--) {
         randomIndex = deterministicReversibleRandom(seed++, 16, array.length-1);
 
-        value1 = arrayCopy[i];
-        value2 = arrayCopy[randomIndex];
+        let value1 = arrayCopy[i];
+        let value2 = arrayCopy[randomIndex];
         arrayCopy[i] = value2;
         arrayCopy[randomIndex] = value1;
     }
@@ -157,6 +203,14 @@ function arrayRandomisation(array, seed) {
     return arrayCopy;
 }
 
+/*
+Params:
+    - array: array to shuffle
+    - seed: number used for initial randomisation
+
+Output:
+    - The original array before shuffling
+*/
 // Fisher-Yates shuffle can be reversed by performing its steps in reverse.
 // Essentially just reverse the seed, since it generates sequentially.
 function arrayReverseRandomisation(shuffledArray, seed) {
@@ -178,6 +232,16 @@ function arrayReverseRandomisation(shuffledArray, seed) {
     return arrayCopy;
 }
 
+/*
+Params:
+    - base: number system to use
+    - base10Value: number to convert
+    - lookupTable: array of strings to reference
+    - maxDigits: length of the output
+
+Output:
+    - A value in the specified base, with leading zeroes if it's shorter than maxDigits
+*/
 function convertToAnyBase(base, base10Value, lookupTable, maxDigits) {
     if(base10Value > Math.pow(base, maxDigits)) {
         console.error(`${base10Value} is too large to fit into ${maxDigits} base ${base} digits.`);
@@ -208,6 +272,15 @@ function convertToAnyBase(base, base10Value, lookupTable, maxDigits) {
     return base64String;
 }
 
+/*
+Params:
+    - base: number system to convert from
+    - value: value in the specified number system to convert
+    - lookupTable: array of strings to reference
+
+Output:
+    - A value in base 10
+*/
 function convertAnyToBase10(base, value, lookupTable) {
     if(lookupTable.length < base) {
         console.error("Too few characters in lookup table");
@@ -215,7 +288,7 @@ function convertAnyToBase10(base, value, lookupTable) {
     }
 
     let total = 0;
-    for(let i = 0;i<value.length;i++) {
+    for(let i = 0; i<value.length; i++) {
         total += lookupTable.indexOf(value.charAt(i)) * Math.pow(base, value.length-1-i);
     }
 
