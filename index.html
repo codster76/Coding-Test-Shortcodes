@@ -26,6 +26,31 @@
         <button onclick="testReversibleRandom()">Test Reversible Random</button>
         <button onclick="testArrayUnrandomisation()">Test Array Unrandomisation</button>
         <button onclick="massTestBoth()">Test Many Codes</button>
+
+        <h1>Encode Shortcode</h1>
+        <form name="myForm">
+          <label>Store ID (200 max):</label>
+          <input type="number" name="storeIdBox" max="200" value="">
+          <label>Transaction ID (10,000 max):</label>
+          <input type="number" name="transactionIdBox" max="10000" value="">
+          <input type="button" name="button" value="Output Shortcode" onClick="encodeFormData(this.form)">
+        </form>
+        <br />
+
+        <div>Shortcode: </div>
+        <div id="shortcode"></div>
+
+        <h1>Decode Shortcode</h1>
+        <form name="myForm">
+          <label>Shortcode:</label>
+          <input type="text" name="inputbox" value="">
+          <input type="button" name="button" value="Output Shortcode" onClick="decodeFormData(this.form)">
+        </form>
+        
+        <br />
+
+        <div>Decoded shortcode: </div>
+        <div id="decoded"></div>
     </main>
 	<script src="index.js"></script>
   </body>

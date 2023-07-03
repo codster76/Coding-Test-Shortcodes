@@ -294,6 +294,25 @@ function convertAnyToBase10(base, value, lookupTable) {
     return total;
 }
 
+function encodeFormData (form) {
+    let storeID = form.storeIdBox.value;
+    let transactionID = form.transactionIdBox.value;
+
+    const elem = document.getElementById("shortcode");
+    
+    elem.innerHTML = generateShortCode(storeID, transactionID);
+}
+
+function decodeFormData (form) {
+    const shortcode = form.inputbox.value;
+
+    const elem = document.getElementById("decoded");
+
+    const decodedCode = decodeShortCode(shortcode)
+    
+    elem.innerHTML = `<div>Store ID: ${decodedCode.storeId}</div> <div>Transaction ID: ${decodedCode.transactionId}</div> <div>Date: ${decodedCode.shopDate}</div>`;
+}
+
 // Test buttons
 
 function printArray() {
