@@ -1,61 +1,55 @@
 /*
 Notes:
-Things to figure out:
-- Fit all the necessary info into 9 characters
-  - Putting all the info in as plain text results in 14-character long strings at most (200 10000 31 12 99)
-  - The simplest way to fit greater numbers into fewer characters is to use higher number systems
-  - Hexadecimals are promising (C8 2710 1F C 63), but it's still 11 characters long at most.
-  - I could optimise a little and only track days in the year, but that would only save characters in base 10
-  - Dates are the issue. I don't think there's a great way to compress dates without losing any info, so including a full date in the code is not too feasible.
-  - Knowing time since a start date would be ideal. I believe the 1st January 1970 default date should work for this.
-
-  - Base 64 (200 10000 36500 64) -> (DI CcQ I6U +)
-    - Convert all values to base64
-    - Include a randomisation seed at the end
-    - Keep a private key in the code
-    - Problem with only using base64 is that our possible values are far smaller than the possible number sets, generally causing 
-    a large number of leading zeroes. Choosing smaller number systems would more evenly distribute our values across the number
-    systems. It might also make it harder to crack.
-    - I cannot feasibly go much over ~base 70 because you'd run out of common standard characters on an english keyboard
-
-  - 2 characters for store number
-    - Hexadecimal is almost perfect for representing store number. (255 possible numbers in 2 digits)
-
-  - 3 characters for transaction number
-    - Base 22 reaches around 10,000 within three characters.
-
-  - 3 characters for date
-    - Our smallest unit of measurement for dates is by day (not millseconds or hours, for example), so tracking the date in days is likely the way to go.
-    - There isn't too much information on how long promotions are intended to go on for, so I will use the highest possible base
-    I can fit. Base 64 allows for up to 262,143 possible days, which is around 718 years, which is probably enough.
-
-  - 1 character for randomisation seed
-    - I need to fit as much information in there as possible, so using the highest possible base is ideal.
-
-- Encryption for anti-cheating
-  - SHA-3 looked promising and simple, but it's a hash function, so not reversible.
-  - Symmetrical encryption sounds like the way to go, but character length is an issue.
-  - Avoiding collisions is a serious consideration with small codes like these ones
-
-  - Idea: Use base 64 for the codes to compress them as much as possible
-
-- Advantages to my approach
-    - Encoding is very hard to discern
-    - Uses a good variety of characters
-- Disadvantages of my approach
-    - Multiple mapping collisions because of how the randomisation works.
-    - Values are clustered together around the middle of the number set.
-
-- There's only so much I can actually do with a single salt character.
-
-*/
-
-/*
 There are two parts to this problem:
     1. Fitting all of the information into 9 characters
     2. Obfuscating the encoding method from potential cheaters
 
+Thought process:
+- Fitting all the necessary info into 9 characters
+  - Putting all the info in as plain text results in 14-character long strings at most (200 10000 31 12 99).
+  - The simplest way to fit greater numbers into fewer characters is to use higher number systems.
+  - Hexadecimals are promising (200 10000 31 12 99) -> (C8 2710 1F C 63), but it's still 11 characters long at most.
+  - Space could be saved with dates by only tracking days instead of days/months, but it only saves space in base 10 (365 takes up less space than 31 and 12, but 365 base 10 = 16D base 16)
+  - Tracking full dates probably isn't the way to go. Too much information.
+  - Knowing time since a start date would be ideal. I believe the 1st January 1970 default date should work for this.
+
+- Base 64 (200 10000 36500 64) -> (DI CcQ I6U +)
+  - Convert all values to base 64
+  - Include a randomisation seed at the end
+  - The problem with only using base 64 is that the specified values are significantly smaller than base 64 allows, generally causing a large number of leading zeroes.
+  - Choosing more appropriate number systems would more evenly distribute the values. It might also make it harder to crack.
+  - You cannot feasibly go very far over base ~70 because you'd run out of common standard characters on an english keyboard.
+
+- Characters/number systems for each part of the shortcode
+  - 2 characters for store number
+    - Hexadecimal is almost perfect for representing store number. (255 possible numbers in 2 digits).
+
+  - 3 characters for transaction number
+    - Base 22 reaches around 10,000 within three characters. (10,647 possible characters in 3 digits).
+    - Higher number systems are definitely possible if more customers are expected.
+
+  - 3 characters for date
+    - Our smallest unit of measurement for dates is by day (not millseconds or hours, for example), so tracking the date as days is likely the way to go.
+    - There isn't too much information on how long promotions are intended to go on for, so I will use the highest possible base I can fit. Base 64 allows for up to 262,143 possible days, which is around 718 years. Probably enough.
+
+  - 1 character for randomisation seed
+    - I want to fit as much information in there as possible, so using the highest possible base is ideal.
+    - The higher the number, the more randomisation is possible.
+
+- Dealing with cheaters
+  - Codes cannot be in plaintext and must be encrypted in some way in a way that's reversible.
+  - Obviously, the best way to do this is to store them on a database after creation and remove them upon use, but that's not the point of this task.
+  - Ideas
+    - SHA-3 looked promising and simple, but it's a hash function, so not reversible.
+    - Symmetrical encryption sounds like the way to go, but character length is an issue. Most encryption algorithms add far too many characters.
+    - Avoiding collisions is a serious consideration with small codes like these ones.
+    - A replacement cipher is simple, but easy to crack.
+    - Multiple layers of randomisation?
+    - I've worked with password salting before, so maybe a similar thing could be used with deterministic randomisation.
+    - Attempted to use a linear congruential generator, which gives high-quality random values, but I need to do more research on the math in order to understand it better.
 */
+
+// All of these global variables might be saved as environment variables or as an object per promotion, depending on the use case.
 
 // You could add greater or fewer characters, like '[' or '.'. These ones are mostly chosen for ease of demonstration.
 const characterLookupTable = [
@@ -69,14 +63,13 @@ const characterLookupTable = [
     '?'
 ];
 
-// Number systems used for the different values
+// Number systems used for the different values.
 const storeBase = 16;
 const transactionBase = 22;
 const dateBase = characterLookupTable.length;
 const seedBase = characterLookupTable.length;
 
-// Digits for each value
-// Works in such a way where codes can be any length, based on these values.
+// Number of digits for each value. Codes can be of any length and they are controlled by these values. Please try changing them and taking a look.
 const storeDigits = 2;
 const transactionDigits = 3;
 const dateDigits = 3;
@@ -102,22 +95,23 @@ function generateShortCode(storeId, transactionId) {
     }
 
     const today = new Date();
-    const todayInDays = Math.ceil(today / (1000 * 60 * 60 * 24));
+    // Date rounding seems to cause mismatches with the current date, so 1 is subtracted.
+    const todayInDays = Math.ceil(today / (1000 * 60 * 60 * 24) - 1); // Days since 1st January 1970
 
+    // Randomisation here should be from a true random or unpredictable source. Math.random is used as a substitute.
     const seedValue = Math.round(Math.random() * ((seedBase - 1) - 1) + 1);
     
     const randomisedArray = arrayRandomisation(characterLookupTable, seedValue);
 
-    const base64StoreID = convertToAnyBase(storeBase, storeId, randomisedArray, storeDigits);
-    const base64TransactionID = convertToAnyBase(transactionBase, transactionId, randomisedArray, transactionDigits);
-    const base64Date = convertToAnyBase(dateBase, todayInDays, randomisedArray, dateDigits);
-    const base64Seed = convertToAnyBase(seedBase, seedValue, characterLookupTable, seedDigits);
+    const convertedStoreID = convertToAnyBase(storeBase, storeId, randomisedArray, storeDigits);
+    const convertedTransactionID = convertToAnyBase(transactionBase, transactionId, randomisedArray, transactionDigits);
+    const convertedDate = convertToAnyBase(dateBase, todayInDays, randomisedArray, dateDigits);
+    const convertedSeed = convertToAnyBase(seedBase, seedValue, characterLookupTable, seedDigits);
 
-    // Shortcode is shuffled. This helps to avoid predictable repeat characters.
-    const unshuffledShortCodeAsArray = `${base64StoreID}${base64TransactionID}${base64Date}`.split('');
+    const unshuffledShortCodeAsArray = `${convertedStoreID}${convertedTransactionID}${convertedDate}`.split('');
     const shuffledShortCodeAsArray = arrayRandomisation(unshuffledShortCodeAsArray, seedValue);
 
-    const shortCode = shuffledShortCodeAsArray.join('') + base64Seed;
+    const shortCode = shuffledShortCodeAsArray.join('') + convertedSeed;
     
     return shortCode;
 }
@@ -130,44 +124,48 @@ Output:
     - Object containing storeId, shopDate, transactionId
 */
 function decodeShortCode(shortCode) {
-    const seedValue = convertAnyToBase10(seedBase, shortCode.charAt(shortCode.length - 1), characterLookupTable);
+    const originalSeedValue = convertAnyToBase10(seedBase, shortCode.charAt(shortCode.length - 1), characterLookupTable);
 
-    const randomisedArray = arrayRandomisation(characterLookupTable, seedValue);
+    // Lookup table is re-randomised using the same seed so that values can be converted back.
+    const randomisedArray = arrayRandomisation(characterLookupTable, originalSeedValue);
 
-    const shortCodeWithoutSeed = shortCode.substring(0,8).split('');
-    const unshuffledShortCode = arrayReverseRandomisation(shortCodeWithoutSeed, seedValue).join('');
+    const shortCodeWithoutSeed = shortCode.substring(0,storeDigits+transactionDigits+dateDigits).split('');
+    const unshuffledShortCode = arrayReverseRandomisation(shortCodeWithoutSeed, originalSeedValue).join('');
 
     const storeID = convertAnyToBase10(storeBase, unshuffledShortCode.substring(0,storeDigits), randomisedArray);
     const transactionID = convertAnyToBase10(transactionBase, unshuffledShortCode.substring(storeDigits,storeDigits+transactionDigits), randomisedArray);
     const dateOfTransaction = convertAnyToBase10(dateBase, unshuffledShortCode.substring(storeDigits+transactionDigits,storeDigits+transactionDigits+dateDigits), randomisedArray);
 
-    // Date rounding seems to cause mismatches in dates, so 1 day needs to be subtracted
-    dateOfTransaction = (dateOfTransaction - 1) * 24 * 60 * 60 * 1000;
+    const dateOfTransactionInMilliseconds = dateOfTransaction * 24 * 60 * 60 * 1000;
 
     return {
         storeId: storeID,
-        shopDate: new Date(dateOfTransaction),
+        shopDate: new Date(dateOfTransactionInMilliseconds),
         transactionId: transactionID,
     };
 }
 
 /*
 Params:
-    - seed: number between 0 and 2^numDigits
+    - seed: number between 0 and 2 ^ numDigits
     - numDigits: maximum number of digits used for randomisation. Greater values allow for more granularity in randomisation.
     - maxValue: Final value will be mapped to a value between 0 and maxValue
 
 Output:
     - Random number between 0 and maxValue
 */
-// Not crypographically secure at all, but random enough to be usable.
+
+// Distribution of values for this type of randomisation is not great, but it's random enough to be difficult to discern.
+// A better method like a linear congruential generator might be better here if I had the time to research the math behind it.
 function deterministicReversibleRandom(seed, numDigits, maxValue) {
     const valueInBinaryAsArray = seed.toString(2).split('').reverse();
+
     if(valueInBinaryAsArray.length > numDigits) {
         console.error("Seed value is larger than maximum number of binary digits");
         return 0;
     }
 
+    // Add necessary leading zeroes so values can be converted backwards and forwards.
     while(valueInBinaryAsArray.length < numDigits) {
         valueInBinaryAsArray.push('0');
     }
@@ -184,14 +182,14 @@ Params:
 Output:
     - Shuffled copy of the input array
 */
+
 // Fisher–Yates shuffle
 function arrayRandomisation(array, seed) {
-    const arrayCopy = JSON.parse(JSON.stringify(array)); // without a deep copy, it modifies the original array repeatedly
+    const arrayCopy = JSON.parse(JSON.stringify(array));
 
-    // let currentIndex = array.length;
     let randomIndex = 0;
 
-    for(let i = array.length-1;i>=0;i--) {
+    for(let i = array.length - 1; i >= 0; i--) {
         randomIndex = deterministicReversibleRandom(seed++, 16, array.length-1);
 
         let value1 = arrayCopy[i];
@@ -211,20 +209,21 @@ Params:
 Output:
     - The original array before shuffling
 */
-// Fisher-Yates shuffle can be reversed by performing its steps in reverse.
-// Essentially just reverse the seed, since it generates sequentially.
-function arrayReverseRandomisation(shuffledArray, seed) {
-    const arrayCopy = JSON.parse(JSON.stringify(shuffledArray)); // without a deep copy, it modifies the original array repeatedly
-    endSeed = seed + shuffledArray.length-1;
 
-    // let currentIndex = array.length;
+// Fisher-Yates shuffle can be reversed by performing its steps in reverse.
+// If you can reverse the randomisation seed, you can reverse this shuffle.
+function arrayReverseRandomisation(shuffledArray, seed) {
+    const arrayCopy = JSON.parse(JSON.stringify(shuffledArray));
+
+    let finalSeed = seed + shuffledArray.length-1;
+
     let randomIndex = 0;
 
     for(let i = 0; i < shuffledArray.length; i++) {
-        randomIndex = deterministicReversibleRandom(endSeed--, 16, shuffledArray.length-1);
+        randomIndex = deterministicReversibleRandom(finalSeed--, 16, shuffledArray.length-1);
 
-        value1 = arrayCopy[i];
-        value2 = arrayCopy[randomIndex];
+        let value1 = arrayCopy[i];
+        let value2 = arrayCopy[randomIndex];
         arrayCopy[i] = value2;
         arrayCopy[randomIndex] = value1;
     }
@@ -288,7 +287,7 @@ function convertAnyToBase10(base, value, lookupTable) {
     }
 
     let total = 0;
-    for(let i = 0; i<value.length; i++) {
+    for(let i = 0; i < value.length; i++) {
         total += lookupTable.indexOf(value.charAt(i)) * Math.pow(base, value.length-1-i);
     }
 
@@ -381,4 +380,14 @@ function testArrayUnrandomisation() {
     let shuffledArray = arrayRandomisation(characterLookupTable, 141);
     console.log(shuffledArray);
     console.log(arrayReverseRandomisation(shuffledArray, 141))
+}
+
+function massTestBoth() {
+    for(let i = 0; i < 200; i++) {
+        for(let j = 0; j < 10; j++) {
+            const sc = generateShortCode(i, Math.floor(Math.random() * (10000 - 0 + 1) + 0));
+            console.log(sc);
+            console.log(decodeShortCode(sc));
+        }
+    }
 }
