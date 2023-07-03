@@ -94,9 +94,9 @@ function generateShortCode(storeId, transactionId) {
         return "";
     }
 
-    const today = new Date();
-    // Date rounding seems to cause mismatches with the current date, so 1 is subtracted.
-    const todayInDays = Math.ceil(today / (1000 * 60 * 60 * 24) - 1); // Days since 1st January 1970
+    let today = new Date();
+    today = today.setHours(0, 0, 0, 0);
+    const todayInDays = Math.ceil(today / (1000 * 60 * 60 * 24)); // Days since 1st January 1970
 
     // Randomisation here should be from a true random or unpredictable source. Math.random is used as a substitute.
     const seedValue = Math.round(Math.random() * ((seedBase - 1) - 1) + 1);
